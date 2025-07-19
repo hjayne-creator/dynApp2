@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Files - Ecommerce Content Analyzer{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-5">
+                <h1 class="display-5 mb-3">
+                    <i class="fas fa-upload me-3"></i>
+                    Upload Your Content
+                </h1>
+                <p class="lead text-muted">
+                    Upload 2 or more HTML files containing your ecommerce buyers guides. 
+                    The system will analyze and find common keywords across all files.
+                </p>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-file-upload me-2"></i>
+                                Select HTML Files
+                            </label>
+                            <div class="upload-area" id="uploadArea">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                <p class="mb-2">Drag and drop HTML files here or click to browse</p>
+                                <p class="text-muted small">Maximum file size: 16MB per file</p>
+                                <input type="file" name="files" multiple accept=".html,.htm" 
+                                       class="form-control" id="fileInput" required>
+                            </div>
+                        </div>
+
+                        <div id="fileList" class="mb-4" style="display: none;">
+                            <h6 class="fw-bold mb-3">
+                                <i class="fas fa-list me-2"></i>
+                                Selected Files
+                            </h6>
+                            <div id="fileItems" class="list-group">
+                                <!-- File items will be added here dynamically -->
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info" role="alert">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Analysis Process
+                            </h6>
+                            <ul class="mb-0 small">
+                                <li>HTML tags will be automatically removed from your files</li>
+                                <li>Content will be tokenized into 1, 2, and 3-word phrases</li>
+                                <li>Keywords will be filtered for ecommerce-related terms</li>
+                                <li>Only keywords appearing in ALL files will be included in results</li>
+                                <li>Results sent to GPT for SEO analysis</li>
+
+                            </ul>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                                <i class="fas fa-play me-2"></i>
+                                Start Analysis
+                            </button>
+                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Back to Home
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Keyword Categories Info -->
+            <div class="card mt-4 shadow">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tags me-2"></i>
+                        Keyword Categories
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Transactional Keywords</h6>
+                            <p class="small text-muted">Words related to purchasing, payment, and shopping behavior</p>
+                            <div class="d-flex flex-wrap">
+                                <span class="badge bg-primary me-1 mb-1">buy</span>
+                                <span class="badge bg-primary me-1 mb-1">purchase</span>
+                                <span class="badge bg-primary me-1 mb-1">checkout</span>
+                                <span class="badge bg-primary me-1 mb-1">price</span>
+                                <span class="badge bg-primary me-1 mb-1">shipping</span>
+                                <span class="badge bg-primary me-1 mb-1">payment</span>
+                                <span class="badge bg-secondary me-1 mb-1">+ more</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success">Product Search Keywords</h6>
+                            <p class="small text-muted">Words related to product features, quality, and search intent</p>
+                            <div class="d-flex flex-wrap">
+                                <span class="badge bg-success me-1 mb-1">best</span>
+                                <span class="badge bg-success me-1 mb-1">quality</span>
+                                <span class="badge bg-success me-1 mb-1">premium</span>
+                                <span class="badge bg-success me-1 mb-1">durable</span>
+                                <span class="badge bg-success me-1 mb-1">affordable</span>
+                                <span class="badge bg-success me-1 mb-1">smart</span>
+                                <span class="badge bg-secondary me-1 mb-1">+ more</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const fileItems = document.getElementById('fileItems');
+    const submitBtn = document.getElementById('submitBtn');
+    const uploadArea = document.getElementById('uploadArea');
+    const uploadForm = document.getElementById('uploadForm');
+
+    // Handle file selection
+    fileInput.addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        console.log('Files selected:', files.length, files.map(f => f.name)); // Debug log
+        displayFiles(files);
+        updateSubmitButton(files);
+    });
+
+    // Make upload area clickable
+    uploadArea.addEventListener('click', function(e) {
+        if (e.target !== fileInput) {
+            fileInput.click();
+        }
+    });
+
+    // Drag and drop functionality
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#667eea';
+        uploadArea.style.backgroundColor = '#f8f9fa';
+    });
+
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#dee2e6';
+        uploadArea.style.backgroundColor = 'transparent';
+    });
+
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#dee2e6';
+        uploadArea.style.backgroundColor = 'transparent';
+        
+        const files = Array.from(e.dataTransfer.files).filter(file => 
+            file.type === 'text/html' || file.name.endsWith('.html') || file.name.endsWith('.htm')
+        );
+        
+        console.log('Files dropped:', files.length, files.map(f => f.name)); // Debug log
+        
+        if (files.length > 0) {
+            // Create a new FileList-like object
+            const dt = new DataTransfer();
+            files.forEach(file => dt.items.add(file));
+            fileInput.files = dt.files;
+            
+            displayFiles(files);
+            updateSubmitButton(files);
+        }
+    });
+
+    function displayFiles(files) {
+        console.log('Displaying files:', files.length); // Debug log
+        if (files.length === 0) {
+            fileList.style.display = 'none';
+            return;
+        }
+
+        fileItems.innerHTML = '';
+        files.forEach((file, index) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+            fileItem.innerHTML = `
+                <div>
+                    <i class="fas fa-file-code text-primary me-2"></i>
+                    <strong>${file.name}</strong>
+                    <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            fileItems.appendChild(fileItem);
+        });
+        
+        fileList.style.display = 'block';
+    }
+
+    function updateSubmitButton(files) {
+        console.log('Updating submit button, files count:', files.length); // Debug log
+        const shouldEnable = files.length >= 2;
+        submitBtn.disabled = !shouldEnable;
+        
+        if (!shouldEnable) {
+            submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Upload at least 2 files';
+        } else {
+            submitBtn.innerHTML = '<i class="fas fa-play me-2"></i>Start Analysis';
+        }
+        
+        console.log('Submit button disabled:', submitBtn.disabled); // Debug log
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Remove file function (global scope for onclick)
+    window.removeFile = function(index) {
+        console.log('Removing file at index:', index); // Debug log
+        
+        try {
+            const dt = new DataTransfer();
+            const files = Array.from(fileInput.files);
+            console.log('Current files before removal:', files.length); // Debug log
+            
+            files.splice(index, 1);
+            console.log('Files after removal:', files.length); // Debug log
+            
+            files.forEach(file => dt.items.add(file));
+            fileInput.files = dt.files;
+            
+            displayFiles(files);
+            updateSubmitButton(files);
+        } catch (error) {
+            console.error('Error removing file:', error);
+            // Fallback: reset the file input
+            fileInput.value = '';
+            displayFiles([]);
+            updateSubmitButton([]);
+        }
+    };
+
+    // Form submission with loading state
+    uploadForm.addEventListener('submit', function(e) {
+        const files = Array.from(fileInput.files);
+        console.log('Form submission, files count:', files.length); // Debug log
+        
+        if (files.length < 2) {
+            e.preventDefault();
+            alert('Please select at least 2 files to analyze.');
+            return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+    });
+});
+</script>
+{% endblock %} 

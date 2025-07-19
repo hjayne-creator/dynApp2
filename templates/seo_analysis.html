@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}SEO Analysis - Ecommerce Content Analyzer{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="text-center mb-5">
+                <h1 class="display-5 mb-3">
+                    <i class="fas fa-search me-3"></i>
+                    SEO Keyword Analysis
+                </h1>
+                <p class="lead text-muted">
+                    Analysis ID: <code>{{ result.analysis_id }}</code> | 
+                    Processed: {{ result.urls_processed }} URLs | 
+                    Keywords: {{ result.keyword_count }}
+                </p>
+            </div>
+
+            {% if not seo_analysis %}
+            <!-- Product Title Input Form -->
+            <div class="card shadow mb-5">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Enter Product Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <div class="mb-3">
+                            <label for="product_title" class="form-label">
+                                <strong>Product Title</strong>
+                            </label>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   id="product_title" 
+                                   name="product_title" 
+                                   value="{{ default_title }}"
+                                   placeholder="e.g., Wireless Bluetooth Headphones, Organic Cotton T-Shirt, etc."
+                                   required>
+                            <div class="form-text">
+                                Enter the main product title that these keywords will be analyzed against for SEO value.
+                                {% if default_title %}
+                                <br><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Default title derived from: {{ result.urls[0] }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-magic me-2"></i>
+                                Analyze SEO Value
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Keywords Preview -->
+            <div class="card shadow">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tags me-2"></i>
+                        Keywords to be Analyzed
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap">
+                        {% for keyword_data in result.common_keywords[:20] %}
+                            <span class="badge keyword-badge fs-6 me-2 mb-2">
+                                {{ keyword_data.keyword }}
+                                <span class="badge bg-light text-dark ms-1">{{ keyword_data.frequency }}</span>
+                            </span>
+                        {% endfor %}
+                        {% if result.common_keywords|length > 20 %}
+                            <span class="badge bg-secondary fs-6 me-2 mb-2">
+                                +{{ result.common_keywords|length - 20 }} more keywords
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- SEO Analysis Results -->
+            <div class="card shadow mb-5">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        SEO Analysis Results
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6 class="text-muted">
+                            <i class="fas fa-tag me-2"></i>
+                            Product: <strong>{{ product_title }}</strong>
+                        </h6>
+                    </div>
+                    
+                    <div class="seo-analysis-content">
+                        {{ seo_analysis|safe }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="text-center mb-5">
+                <a href="{{ url_for('seo_analysis', analysis_id=result.analysis_id) }}" class="btn btn-outline-primary btn-lg me-3">
+                    <i class="fas fa-redo me-2"></i>
+                    New Analysis
+                </a>
+                <a href="{{ url_for('results', analysis_id=result.analysis_id) }}" class="btn btn-outline-secondary btn-lg me-3">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Back to Results
+                </a>
+                <button class="btn btn-outline-success btn-lg" onclick="copySEOAnalysis()">
+                    <i class="fas fa-copy me-2"></i>
+                    Copy Analysis
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- Navigation -->
+            <div class="text-center">
+                <a href="{{ url_for('crawl') }}" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-plus me-2"></i>
+                    New Analysis
+                </a>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-lg">
+                    <i class="fas fa-home me-2"></i>
+                    Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copySEOAnalysis() {
+    const analysisContent = document.querySelector('.seo-analysis-content').innerText;
+    navigator.clipboard.writeText(analysisContent).then(() => {
+        showToast('SEO analysis copied to clipboard!', 'success');
+    });
+}
+
+function showToast(message, type = 'info') {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'position-fixed top-0 end-0 p-3';
+    toastContainer.style.zIndex = '1050';
+    
+    toastContainer.innerHTML = `
+        <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(toastContainer);
+    const toast = new bootstrap.Toast(toastContainer.querySelector('.toast'));
+    toast.show();
+    
+    toastContainer.addEventListener('hidden.bs.toast', () => {
+        document.body.removeChild(toastContainer);
+    });
+}
+</script>
+
+<style>
+.seo-analysis-content {
+    background-color: #f8f9fa;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    border-left: 4px solid #28a745;
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.seo-analysis-content strong {
+    color: #28a745;
+}
+
+.seo-analysis-content ul {
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.seo-analysis-content li {
+    margin-bottom: 0.25rem;
+}
+
+/* Style headers */
+.seo-analysis-content .seo-header {
+    margin-bottom: 0.5rem;
+    margin-top: 1rem;
+}
+
+.seo-analysis-content .seo-header:first-child {
+    margin-top: 0;
+}
+</style>
+{% endblock %} 

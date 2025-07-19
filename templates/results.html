@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Results - Ecommerce Content Analyzer{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="text-center mb-5">
+                <h1 class="display-5 mb-3">
+                    <i class="fas fa-chart-bar me-3"></i>
+                    Analysis Results
+                </h1>
+                <p class="lead text-muted">
+                    Analysis ID: <code>{{ result.analysis_id }}</code> | 
+                    Processed: {{ result.urls_processed }} URLs | 
+                    Found: {{ result.keyword_count }} common keywords
+                </p>
+                <p class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    {{ result.timestamp.split('T')[0] }} at {{ result.timestamp.split('T')[1][:8] }}
+                </p>
+            </div>
+
+                        <!-- Summary Cards -->
+            <div class="row mb-5">
+                <div class="col-md-4">
+                    <div class="card text-center border-0 shadow">
+                        <div class="card-body">
+                            <i class="fas fa-globe fa-3x text-primary mb-3"></i>
+                            <h3 class="card-title">{{ result.urls_processed }}</h3>
+                            <p class="card-text">URLs Analyzed</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center border-0 shadow">
+                        <div class="card-body">
+                            <i class="fas fa-tags fa-3x text-success mb-3"></i>
+                            <h3 class="card-title">{{ result.keyword_count }}</h3>
+                            <p class="card-text">Common Keywords</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center border-0 shadow">
+                        <div class="card-body">
+                            <i class="fas fa-trophy fa-3x text-warning mb-3"></i>
+                            <h3 class="card-title">
+                                {% if result.common_keywords %}
+                                    {{ result.common_keywords[0].keyword[:15] }}{% if result.common_keywords[0].keyword|length > 15 %}...{% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h3>
+                            <p class="card-text">Top Keyword</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Common Keywords Section -->
+            <div class="card shadow mb-5">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-star me-2"></i>
+                        Common Keywords Found in All URLs
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if result.common_keywords %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Keyword/Phrase</th>
+                                        <th>Frequency</th>
+                                        <th>Files Found In</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for keyword_data in result.common_keywords %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-primary">{{ loop.index }}</span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ keyword_data.keyword }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success">{{ keyword_data.frequency }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ keyword_data.frequency }} of {{ result.urls_processed }} URLs</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <div class="d-flex flex-wrap">
+                                {% for keyword_data in result.common_keywords %}
+                                    <span class="badge keyword-badge fs-6 me-2 mb-2">
+                                        {{ keyword_data.keyword }}
+                                        <span class="badge bg-light text-dark ms-1">{{ keyword_data.frequency }}</span>
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <!-- Export Section -->
+                        <div class="mt-4 pt-3 border-top">
+                            <h6 class="mb-3">
+                                <i class="fas fa-download me-2"></i>
+                                Export Results
+                            </h6>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary btn-sm" onclick="copyKeywords()">
+                                    <i class="fas fa-copy me-1"></i>
+                                    Copy Keywords
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="downloadCSV()">
+                                    <i class="fas fa-file-csv me-1"></i>
+                                    Download CSV
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" onclick="downloadJSON()">
+                                    <i class="fas fa-file-code me-1"></i>
+                                    Download JSON
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- SEO Analysis Section -->
+                        <div class="mt-4 pt-3 border-top">
+                            <h6 class="mb-3">
+                                <i class="fas fa-search me-2"></i>
+                                SEO Analysis
+                            </h6>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('seo_analysis', analysis_id=result.analysis_id) }}" class="btn btn-outline-warning btn-sm">
+                                    <i class="fas fa-magic me-1"></i>
+                                    Analyze SEO Value
+                                </a>
+                            </div>
+                            <div class="form-text mt-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Get AI-powered SEO analysis of your keywords against a specific product title.
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <h5>No Common Keywords Found</h5>
+                            <p class="text-muted">
+                                No ecommerce-related keywords were found across all crawled URLs. 
+                                This might indicate that the URLs don't contain similar content or 
+                                the keyword database needs to be expanded.
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- URL Details Section -->
+            <div class="card shadow">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        URL Analysis Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>URL</th>
+                                    <th>Title</th>
+                                    <th>Status</th>
+                                    <th>Total Tokens</th>
+                                    <th>Keyword Count</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for url_detail in result.url_details %}
+                                <tr class="{% if url_detail.status == 'failed' %}table-danger{% endif %}">
+                                    <td>
+                                        <i class="fas fa-globe text-primary me-2"></i>
+                                        <a href="{{ url_detail.url }}" target="_blank" class="text-decoration-none">
+                                            <strong>{{ url_detail.url }}</strong>
+                                        </a>
+                                        {% if url_detail.status == 'failed' %}
+                                            <br><small class="text-danger">{{ url_detail.error }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if url_detail.title %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ url_detail.title }}">
+                                                {{ url_detail.title }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">No title</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if url_detail.status == 'success' %}
+                                            <span class="badge bg-success">Success</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Failed</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ url_detail.total_tokens }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ url_detail.keyword_count }}</span>
+                                    </td>
+                                    <td>
+                                        {% if url_detail.status == 'success' %}
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="showUrlKeywords('{{ url_detail.url }}', JSON.parse('{{ url_detail.filtered_keywords|tojson|safe }}'))">
+                                                <i class="fas fa-eye me-1"></i>
+                                                View Keywords
+                                            </button>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="text-center mt-5">
+                <a href="{{ url_for('crawl') }}" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-plus me-2"></i>
+                    New Analysis
+                </a>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-lg">
+                    <i class="fas fa-home me-2"></i>
+                    Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for showing all keywords from a URL -->
+<div class="modal fade" id="keywordsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-tags me-2"></i>
+                    All Keywords in <span id="modalUrl"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalKeywords" class="d-flex flex-wrap">
+                    <!-- Keywords will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Store keywords data for modal
+const urlKeywords = JSON.parse('{{ result.url_details|tojson|safe }}').reduce((acc, url) => {
+    acc[url.url] = url.filtered_keywords;
+    return acc;
+}, {});
+
+function showUrlKeywords(url, keywords) {
+    document.getElementById('modalUrl').textContent = url;
+    const modalKeywords = document.getElementById('modalKeywords');
+    modalKeywords.innerHTML = '';
+    
+    // Convert dictionary to array of [keyword, frequency] pairs and sort by frequency
+    const keywordArray = Object.entries(keywords).sort((a, b) => b[1] - a[1]);
+    
+    keywordArray.forEach(([keyword, frequency]) => {
+        const badge = document.createElement('span');
+        badge.className = 'badge keyword-badge me-2 mb-2';
+        badge.textContent = `${keyword} (${frequency})`;
+        modalKeywords.appendChild(badge);
+    });
+    
+    new bootstrap.Modal(document.getElementById('keywordsModal')).show();
+}
+
+function copyKeywords() {
+    const keywords = JSON.parse('{{ result.common_keywords|tojson|safe }}');
+    const text = keywords.map(k => `${k.keyword} (${k.frequency})`).join(', ');
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Keywords copied to clipboard!', 'success');
+    });
+}
+
+function downloadCSV() {
+    const keywords = JSON.parse('{{ result.common_keywords|tojson|safe }}');
+    const csvContent = 'data:text/csv;charset=utf-8,' + 
+        'Rank,Keyword,Frequency,Files Found In\n' + 
+        keywords.map((k, index) => `${index + 1},"${k.keyword}",${k.frequency},${k.frequency} of {{ result.urls_processed }} URLs`).join('\n');
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'common_keywords.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function downloadJSON() {
+    const data = JSON.parse('{{ result|tojson|safe }}');
+    const jsonContent = 'data:text/json;charset=utf-8,' + JSON.stringify(data, null, 2);
+    
+    const encodedUri = encodeURI(jsonContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'analysis_results.json');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function showToast(message, type = 'info') {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'position-fixed top-0 end-0 p-3';
+    toastContainer.style.zIndex = '1050';
+    
+    toastContainer.innerHTML = `
+        <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(toastContainer);
+    const toast = new bootstrap.Toast(toastContainer.querySelector('.toast'));
+    toast.show();
+    
+    toastContainer.addEventListener('hidden.bs.toast', () => {
+        document.body.removeChild(toastContainer);
+    });
+}
+</script>
+{% endblock %} 

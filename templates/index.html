@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Ecommerce Content Analyzer{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 mb-4">
+            <i class="fas fa-search me-3"></i>
+            Ecommerce Content Analyzer
+        </h1>
+        <p class="lead mb-4">
+            Crawl multiple ecommerce URLs and extract common keywords and phrases 
+            that appear across all pages. 
+        </p>
+        <a href="{{ url_for('crawl') }}" class="btn btn-light btn-lg px-4">
+            <i class="fas fa-globe me-2"></i>
+            Start Analysis
+        </a>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container">
+        <div class="row text-center mb-5">
+            <div class="col-12">
+                <h2 class="display-6">How It Works</h2>
+                <p class="lead text-muted">Simple 4-step process to extract valuable insights from your guides</p>
+            </div>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="card feature-card h-100 text-center">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <i class="fas fa-globe fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="card-title">1. Enter URLs</h5>
+                        <p class="card-text">Enter 2-3 URLs containing your ecommerce buyers guides for crawling.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-3">
+                <div class="card feature-card h-100 text-center">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <i class="fas fa-cogs fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="card-title">2. Crawl & Extract</h5>
+                        <p class="card-text">Crawl URLs with browser headers, extract main content and SEO metadata for analysis.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-3">
+                <div class="card feature-card h-100 text-center">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <i class="fas fa-filter fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="card-title">3. Keyword Analysis</h5>
+                        <p class="card-text">Filter out stop words and sort keywords by frequency (limit 10).</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-3">
+                <div class="card feature-card h-100 text-center">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <i class="fas fa-chart-bar fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="card-title">4. SEO Analysis</h5>
+                        <p class="card-text">Prompt GPT to analyze the keywords and provide a SEO high value keyword list.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+{% endblock %} 
