@@ -210,7 +210,7 @@ def find_common_keywords(file_keywords_list):
         keyword_frequency[keyword] = total_freq
     
     # Filter keywords with frequency 2 and higher
-    filtered_keywords = {kw: freq for kw, freq in keyword_frequency.items() if freq >= 10}
+    filtered_keywords = {kw: freq for kw, freq in keyword_frequency.items() if freq >= 5}
     
     # Sort by frequency (descending) and then alphabetically
     sorted_keywords = sorted(
