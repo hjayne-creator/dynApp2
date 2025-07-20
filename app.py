@@ -165,7 +165,8 @@ def tokenize_text(text, max_ngram=3):
         'order now','order now','order now','order now','order now','order now','order now','order now','order now','order now','order now','order now',
         'returns','policy','terms','conditions','privacy','policy','terms','conditions','privacy','policy','terms','conditions','privacy','policy','terms','conditions','privacy',
         'view','view all','view more','view details','view product','view products','view category','view categories','view brand','view brands','view search','view search for','view search for',
-        'reorder','edit','reviews','see','per','use','with','within','inc','log','must','ordered','option','yes','no','also','cancel','password','create','get'
+        'reorder','edit','reviews','see','per','use','with','within','inc','log','must','ordered','option','yes','no','also','cancel','password','create','get',
+        'canceled','submitted'
     }
     
     # Filter words: remove stop words, single letters, and words shorter than 3 characters
@@ -210,7 +211,7 @@ def find_common_keywords(file_keywords_list):
         keyword_frequency[keyword] = total_freq
     
     # Filter keywords with frequency 2 and higher
-    filtered_keywords = {kw: freq for kw, freq in keyword_frequency.items() if freq >= 5}
+    filtered_keywords = {kw: freq for kw, freq in keyword_frequency.items() if freq >= 10}
     
     # Sort by frequency (descending) and then alphabetically
     sorted_keywords = sorted(
