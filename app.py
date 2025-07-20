@@ -77,43 +77,67 @@ def crawl_url(url):
         if meta_desc_tag:
             meta_description = meta_desc_tag.get('content', '').strip()
         
-        # Extract main content - focus on common content areas
-        main_content = ""
+        # Extract ecommerce-specific content with weighted importance
+        ecommerce_content = extract_ecommerce_content(soup)
         
-        # Try to find main content areas
-        content_selectors = [
-            'main',
-            'article',
-            '[role="main"]',
-            '.content',
-            '.main-content',
-            '#content',
-            '#main',
-            '.post-content',
-            '.entry-content',
-            '.article-content'
-        ]
+        # Build prioritized content string with weighted repetition for importance
+        weighted_content = []
         
-        for selector in content_selectors:
-            content_elem = soup.select_one(selector)
-            if content_elem:
-                main_content = content_elem.get_text()
-                break
+        # Product title (weight: 3x) - most important for SEO
+        if ecommerce_content['product_title']:
+            weighted_content.extend([ecommerce_content['product_title']] * 3)
         
-        # If no main content found, use body content but exclude navigation, footer, etc.
-        if not main_content:
-            # Remove navigation, header, footer, sidebar elements
-            for elem in soup(['nav', 'header', 'footer', 'aside', '.sidebar', '.navigation', '.menu']):
-                elem.decompose()
+        # Product description (weight: 2x) - very important
+        if ecommerce_content['description']:
+            weighted_content.extend([ecommerce_content['description']] * 2)
+        
+        # Specifications (weight: 2x) - contains key product attributes
+        if ecommerce_content['specifications']:
+            weighted_content.extend([ecommerce_content['specifications']] * 2)
+        
+        # Breadcrumbs (weight: 1x) - category context
+        if ecommerce_content['breadcrumbs']:
+            weighted_content.append(ecommerce_content['breadcrumbs'])
+        
+        # Reviews (weight: 1x) - customer language
+        if ecommerce_content['reviews']:
+            weighted_content.append(ecommerce_content['reviews'])
+        
+        # Price info (weight: 1x) - less important for keyword extraction
+        if ecommerce_content['price_info']:
+            weighted_content.append(ecommerce_content['price_info'])
+        
+        # Fallback to generic content extraction if no ecommerce content found
+        if not any(ecommerce_content.values()):
+            # Try to find main content areas
+            content_selectors = [
+                'main', 'article', '[role="main"]', '.content', '.main-content',
+                '#content', '#main', '.post-content', '.entry-content', '.article-content'
+            ]
             
-            body = soup.find('body')
-            if body:
-                main_content = body.get_text()
-            else:
-                main_content = soup.get_text()
+            main_content = ""
+            for selector in content_selectors:
+                content_elem = soup.select_one(selector)
+                if content_elem:
+                    main_content = content_elem.get_text()
+                    break
+            
+            if not main_content:
+                # Remove navigation, header, footer, sidebar elements
+                for elem in soup(['nav', 'header', 'footer', 'aside', '.sidebar', '.navigation', '.menu']):
+                    elem.decompose()
+                
+                body = soup.find('body')
+                if body:
+                    main_content = body.get_text()
+                else:
+                    main_content = soup.get_text()
+            
+            weighted_content.append(main_content)
         
-        # Clean the content
-        clean_text = clean_html(main_content)
+        # Combine all weighted content
+        combined_content = ' '.join(weighted_content)
+        clean_text = clean_html(combined_content)
         
         return {
             'url': url,
@@ -143,95 +167,195 @@ def clean_html(text):
     text = ' '.join(chunk for chunk in chunks if chunk)
     return text
 
-def tokenize_text(text, max_ngram=3):
-    """Tokenize text into 1, 2, and 3 word phrases with filtering"""
+def tokenize_text(text, max_ngram=4):
+    """Tokenize text into 1-4 word phrases with ecommerce-optimized filtering"""
     # Clean and normalize text
     text = re.sub(r'[^\w\s]', ' ', text.lower())
     words = word_tokenize(text)
     
-    # Filter out common stop words, single letters, and short words
+    # Refined stop words - removed some ecommerce-valuable terms, added more noise words
     stop_words = {
+        # Basic stop words
         'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'he', 
         'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the', 'to', 'was', 'will', 'with',
         'i', 'you', 'your', 'we', 'they', 'them', 'this', 'these', 'those', 'or', 'but',
         'if', 'then', 'else', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each',
         'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own',
-        'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now','add cart','account',
-        'com','login','order','price','checkout','cart','shopping','shop','store','price','cost','discount',
-        'item','items','product','products','category','categories','brand','brands','search','search for','search for',
-        'currently','available','add to cart','add to cart','add to cart','add to cart','add to cart','add to cart','add to cart',
-        'shipping','delivery','free shipping','return','refund','warranty','guarantee','secure','payment','credit card','paypal',
-        'please','please click','please click here','please click here to','please click here to','please click here to','please click here to',
-        'order now','order now','order now','order now','order now','order now','order now','order now','order now','order now','order now','order now',
-        'returns','policy','terms','conditions','privacy','policy','terms','conditions','privacy','policy','terms','conditions','privacy','policy','terms','conditions','privacy',
-        'view','view all','view more','view details','view product','view products','view category','view categories','view brand','view brands','view search','view search for','view search for',
-        'reorder','edit','reviews','see','per','use','with','within','inc','log','must','ordered','option','yes','no','also','cancel','password','create','get',
-        'canceled','submitted'
+        'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now',
+        
+        # Generic ecommerce noise (keep valuable terms like "product", "price", "quality")
+        'account', 'com', 'login', 'checkout', 'cart', 'currently', 'available',
+        'please', 'click', 'here', 'view', 'see', 'per', 'use', 'within', 'inc', 
+        'log', 'must', 'option', 'yes', 'no', 'also', 'cancel', 'password', 'create', 
+        'get', 'canceled', 'submitted', 'sign', 'up', 'register', 'login', 'logout',
+        
+        # Website navigation noise
+        'home', 'page', 'next', 'previous', 'back', 'top', 'bottom', 'menu', 'link',
+        'button', 'tab', 'section', 'content', 'main', 'sidebar', 'footer', 'header',
+        
+        # Generic action words without product context
+        'read', 'learn', 'find', 'discover', 'explore', 'browse', 'visit', 'contact',
+        'about', 'help', 'support', 'faq', 'terms', 'privacy', 'policy', 'legal'
     }
     
-    # Filter words: remove stop words, single letters, and words shorter than 3 characters
-    filtered_words = [
-        word for word in words 
-        if word not in stop_words 
-        and len(word) >= 3 
-        and not word.isdigit()
-    ]
+    # Ecommerce-valuable terms to preserve (remove from stop words if present)
+    preserve_terms = {
+        'product', 'products', 'price', 'prices', 'cost', 'quality', 'brand', 'brands',
+        'shipping', 'delivery', 'return', 'returns', 'warranty', 'guarantee',
+        'review', 'reviews', 'rating', 'ratings', 'customer', 'customers',
+        'sale', 'discount', 'offer', 'deal', 'promotion', 'free', 'premium',
+        'size', 'sizes', 'color', 'colors', 'style', 'styles', 'model', 'models',
+        'material', 'materials', 'feature', 'features', 'specification', 'specs'
+    }
+    
+    # Update stop words by removing preserve terms
+    stop_words = stop_words - preserve_terms
+    
+    # Filter words with improved criteria
+    filtered_words = []
+    for word in words:
+        if (word not in stop_words and 
+            len(word) >= 2 and  # Allow 2-letter words for sizes, models, etc.
+            not word.isdigit() and
+            not (len(word) == 2 and word not in ['xs', 'sm', 'md', 'lg', 'xl', 'os']) and  # Allow size abbreviations
+            word.isalpha()):  # Only alphabetic characters
+            filtered_words.append(word)
     
     tokens = {}
     
-    # Add single words (already filtered)
+    # Add single words
     for word in filtered_words:
-        tokens[word] = tokens.get(word, 0) + 1
+        if len(word) >= 3 or word in preserve_terms:  # Allow shorter preserve terms
+            tokens[word] = tokens.get(word, 0) + 1
     
-    # Add bigrams and trigrams (only if all words in the n-gram meet criteria)
+    # Add n-grams with improved validation
     for n in range(2, min(max_ngram + 1, len(filtered_words) + 1)):
         n_grams = list(ngrams(filtered_words, n))
         for gram in n_grams:
-            # Only add n-grams where all words are valid
-            if all(len(word) >= 3 and word not in stop_words for word in gram):
+            # More lenient n-gram filtering for ecommerce phrases
+            if (len(gram) > 1 and
+                not all(word in stop_words for word in gram) and  # Not all stop words
+                not any(len(word) < 2 for word in gram) and  # No single characters
+                any(word in preserve_terms or len(word) >= 3 for word in gram)):  # At least one meaningful word
+                
                 phrase = ' '.join(gram)
-                tokens[phrase] = tokens.get(phrase, 0) + 1
+                # Skip overly generic phrases
+                if not phrase.startswith(('the ', 'a ', 'an ')) and not phrase.endswith((' the', ' a', ' an')):
+                    tokens[phrase] = tokens.get(phrase, 0) + 1
     
     return tokens
 
 def find_common_keywords(file_keywords_list):
-    """Find keywords that appear in all files with frequency tracking"""
+    """Find keywords with strategic frequency and coverage analysis for competitive research"""
     if not file_keywords_list:
         return []
+    
+    num_files = len(file_keywords_list)
     
     # Get all unique keywords that appear in at least one file
     all_keywords = set()
     for keywords_dict in file_keywords_list:
         all_keywords.update(keywords_dict.keys())
     
-    # Calculate total frequency for each keyword across all files
-    keyword_frequency = {}
+    # Calculate metrics for each keyword
+    keyword_metrics = {}
     for keyword in all_keywords:
+        # Count how many files contain this keyword
+        files_containing = sum(1 for keywords_dict in file_keywords_list if keyword in keywords_dict)
+        
+        # Calculate total frequency across all files
         total_freq = sum(keywords_dict.get(keyword, 0) for keywords_dict in file_keywords_list)
-        keyword_frequency[keyword] = total_freq
+        
+        # Calculate average frequency per file that contains it
+        avg_freq = total_freq / files_containing if files_containing > 0 else 0
+        
+        # Calculate coverage percentage
+        coverage = files_containing / num_files
+        
+        keyword_metrics[keyword] = {
+            'total_frequency': total_freq,
+            'files_containing': files_containing,
+            'coverage': coverage,
+            'avg_frequency': avg_freq
+        }
     
-    # Filter keywords with frequency 2 and higher
-    filtered_keywords = {kw: freq for kw, freq in keyword_frequency.items() if freq >= 5}
+    # Multi-tier filtering strategy for competitive analysis
+    # Adaptive thresholds based on number of URLs
+    strategic_keywords = {}
     
-    # Sort by frequency (descending) and then alphabetically
+    # Calculate adaptive thresholds
+    min_files_for_majority = max(2, int(num_files * 0.5))  # At least 50% but minimum 2 files
+    min_files_for_partial = max(1, int(num_files * 0.33))  # At least 33% but minimum 1 file
+    
+    # Ensure different thresholds for better tier separation
+    if min_files_for_majority == min_files_for_partial and num_files >= 3:
+        min_files_for_partial = min_files_for_majority - 1
+    
+    for keyword, metrics in keyword_metrics.items():
+        # Tier 1: Keywords in ALL files (highest priority)
+        if metrics['coverage'] == 1.0 and metrics['total_frequency'] >= 2:
+            strategic_keywords[keyword] = metrics['total_frequency'] + 1000  # Boost score
+        
+        # Tier 2: Keywords in majority of files (50%+) with decent frequency
+        elif metrics['files_containing'] >= min_files_for_majority and metrics['total_frequency'] >= 3:
+            strategic_keywords[keyword] = metrics['total_frequency'] + 500  # Medium boost
+        
+        # Tier 3: High-frequency keywords even if not in majority (competitive gaps)
+        elif metrics['total_frequency'] >= max(4, num_files) and metrics['avg_frequency'] >= 1.5:
+            strategic_keywords[keyword] = metrics['total_frequency'] + 200  # Small boost
+        
+        # Tier 4: Quality keywords with specific valuable patterns
+        elif (metrics['files_containing'] >= min_files_for_partial and 
+              metrics['total_frequency'] >= 2 and
+              any(term in keyword.lower() for term in [
+                  'premium', 'professional', 'advanced', 'pro', 'deluxe', 'luxury',
+                  'organic', 'natural', 'eco', 'sustainable', 'biodegradable',
+                  'wireless', 'bluetooth', 'smart', 'digital', 'electronic',
+                  'waterproof', 'durable', 'lightweight', 'portable', 'compact',
+                  'multi', 'ultra', 'super', 'extra', 'plus', 'max', 'high',
+                  'quality', 'best', 'top', 'rated', 'popular', 'featured'
+              ])):
+            strategic_keywords[keyword] = metrics['total_frequency'] + 150  # Quality boost
+        
+        # Tier 5: General valuable keywords appearing in multiple URLs
+        elif (metrics['files_containing'] >= min_files_for_partial and 
+              metrics['total_frequency'] >= 3 and
+              metrics['avg_frequency'] >= 1.0):
+            strategic_keywords[keyword] = metrics['total_frequency'] + 50  # Base boost
+    
+    # Sort by strategic score (descending) and then alphabetically
     sorted_keywords = sorted(
-        filtered_keywords.items(), 
+        strategic_keywords.items(), 
         key=lambda x: (-x[1], x[0].lower())
     )
     
-    return sorted_keywords
+    # Convert back to original format but include coverage info
+    result = []
+    for keyword, score in sorted_keywords:
+        original_freq = keyword_metrics[keyword]['total_frequency']
+        coverage = keyword_metrics[keyword]['coverage']
+        files_count = keyword_metrics[keyword]['files_containing']
+        
+        result.append({
+            'keyword': keyword,
+            'frequency': original_freq,
+            'coverage': coverage,
+            'files_containing': files_count,
+            'strategic_score': score
+        })
+    
+    return result
 
 def save_analysis_result(analysis_id, urls_data, common_keywords):
     """Save analysis results to JSON file"""
-    # Convert common_keywords from list of tuples to list of dicts for JSON serialization
-    keyword_list = [{'keyword': kw, 'frequency': freq} for kw, freq in common_keywords]
+    # common_keywords is now a list of dicts with enhanced metadata
     
     result = {
         'analysis_id': analysis_id,
         'timestamp': datetime.now().isoformat(),
         'urls_processed': len(urls_data),
         'urls': [data['url'] for data in urls_data],
-        'common_keywords': keyword_list,
+        'common_keywords': common_keywords,  # Already in correct format
         'keyword_count': len(common_keywords),
         'url_details': urls_data
     }
@@ -327,45 +451,71 @@ def convert_markdown_table_to_html(table_lines):
     return ''.join(html_table)
 
 def analyze_keywords_with_openai(keywords_list, product_title):
-    """Analyze keywords with OpenAI for SEO value"""
+    """Analyze keywords with OpenAI for ecommerce SEO value and competitive insights"""
     try:
-        # Prepare the keywords list
-        keywords_text = ', '.join([kw['keyword'] for kw in keywords_list[:50]])  # Limit to top 50 keywords
+        # Prepare the keywords with their strategic information
+        top_keywords = keywords_list[:40]  # Analyze top 40 keywords
         
-        # Create the prompt
-        prompt = f"""Given the following list of keywords and phrases, your task is to identify which terms have strong SEO value and clear search intent. 
-        For each keyword or phrase, evaluate:
-
-1. Search Intent - Does this term reflect commercial, informational, navigational, or transactional intent?
-2. SEO Value - Is this term likely to drive valuable organic traffic? Consider whether it aligns with how real users search and whether it has relevance to a product, service, or topic.
-
-Then sort the keywords by SEO Value High.
-
-Please return a properly formatted markdown table with the following structure:
-
-| Keyword/Phrase | Search Intent | SEO Value | Brief Reason |
-|----------------|---------------|-----------|--------------|
-| example keyword | Commercial | High | Strong commercial intent with high search volume |
-
-Search Intent options: Informational, Commercial, Transactional, Navigational
-SEO Value options: High, Medium, Low
-
-Here is the list of keywords to analyze: {keywords_text}
-
-Please format your response as a clean markdown table with proper headers and alignment."""
-
-        # Create OpenAI client
-        client = OpenAI()
+        # Create detailed keyword context
+        keyword_details = []
+        for kw in top_keywords:
+            coverage_pct = round(kw.get('coverage', 0) * 100)
+            strategic_score = kw.get('strategic_score', kw['frequency'])
+            keyword_details.append(f"{kw['keyword']} (freq: {kw['frequency']}, coverage: {coverage_pct}%, score: {strategic_score})")
         
-        # Call OpenAI API using the new format
+        keywords_context = '\n'.join(keyword_details)
+        
+        # Enhanced prompt for ecommerce competitive analysis
+        prompt = f"""You are an expert ecommerce SEO analyst conducting competitive keyword research for product detail pages (PDPs). 
+
+CONTEXT: These keywords were extracted from competitive product pages for a product related to: "{product_title}"
+
+KEYWORDS DATA (frequency = total occurrences, coverage = % of competitors using it, score = strategic importance):
+{keywords_context}
+
+ANALYSIS TASK:
+Analyze each keyword for ecommerce SEO value considering:
+
+1. **Search Intent**: 
+   - Commercial (product research/comparison)
+   - Transactional (ready to buy)
+   - Informational (learning about features)
+   - Navigational (brand/specific product)
+
+2. **SEO Opportunity**:
+   - High: Strong search volume + commercial intent + optimization potential
+   - Medium: Good search potential but competitive or niche
+   - Low: Limited search volume or too generic
+
+3. **Competitive Strategy**:
+   - Universal (all competitors use - must-have)
+   - Majority (most competitors - important)
+   - Gap (few competitors - opportunity)
+   - Unique (valuable differentiator)
+
+4. **PDP Optimization Value**:
+   - Product attributes (size, color, material, features)
+   - Search modifiers (best, top, premium, affordable)
+   - Long-tail variations (specific use cases)
+   - Brand/quality indicators
+
+Return ONLY a markdown table sorted by SEO Opportunity (High first), then by Strategic Value:
+
+| Keyword/Phrase | Search Intent | SEO Opportunity | Competitive Strategy | PDP Usage | Strategic Reason |
+|----------------|---------------|----------------|---------------------|-----------|------------------|
+| example keyword | Commercial | High | Universal | Product Title | Core product identifier used by all competitors |
+
+Focus on keywords most valuable for product page optimization and organic traffic acquisition."""
+
+        # Call OpenAI API with improved settings
         completion = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",  # Use latest model for better analysis
             messages=[
-                {"role": "system", "content": "You are an SEO expert specializing in ecommerce keyword analysis."},
+                {"role": "system", "content": "You are a senior ecommerce SEO strategist with expertise in competitive keyword analysis and product page optimization. Provide actionable insights for PDP optimization."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=1000,
-            temperature=0.7
+            max_tokens=2000,
+            temperature=0.3  # Lower temperature for more consistent analysis
         )
         
         # Convert markdown to HTML before returning
@@ -374,6 +524,113 @@ Please format your response as a clean markdown table with proper headers and al
         
     except Exception as e:
         return f"Error analyzing keywords: {str(e)}"
+
+def extract_ecommerce_content(soup):
+    """Extract ecommerce-specific content with prioritized weighting"""
+    content_sections = {}
+    
+    # Product title (highest priority)
+    product_title = ""
+    title_selectors = [
+        'h1.product-title', 'h1[class*="product"]', 'h1[class*="title"]',
+        '.product-name h1', '.product-title', '.pdp-product-name',
+        'h1[data-testid*="product"]', '[data-automation-id*="product-title"]'
+    ]
+    
+    for selector in title_selectors:
+        title_elem = soup.select_one(selector)
+        if title_elem:
+            product_title = title_elem.get_text().strip()
+            break
+    
+    if not product_title:
+        # Fallback to any h1 that might be product title
+        h1_tags = soup.find_all('h1')
+        if h1_tags:
+            product_title = h1_tags[0].get_text().strip()
+    
+    content_sections['product_title'] = product_title
+    
+    # Product description (high priority)
+    description = ""
+    desc_selectors = [
+        '.product-description', '.product-details', '.pdp-description',
+        '[class*="description"]', '[class*="details"]', '.product-info',
+        '[data-testid*="description"]', '.product-overview'
+    ]
+    
+    for selector in desc_selectors:
+        desc_elem = soup.select_one(selector)
+        if desc_elem:
+            description = desc_elem.get_text().strip()
+            break
+    
+    content_sections['description'] = description
+    
+    # Product specifications/features (high priority)
+    specs = ""
+    spec_selectors = [
+        '.specifications', '.product-specs', '.features', '.product-features',
+        '[class*="spec"]', '[class*="feature"]', '.attributes', '.product-attributes',
+        '.tech-specs', '.product-details-table'
+    ]
+    
+    for selector in spec_selectors:
+        spec_elem = soup.select_one(selector)
+        if spec_elem:
+            specs = spec_elem.get_text().strip()
+            break
+    
+    content_sections['specifications'] = specs
+    
+    # Product categories/breadcrumbs (medium priority)
+    breadcrumbs = ""
+    breadcrumb_selectors = [
+        '.breadcrumb', '.breadcrumbs', 'nav[aria-label*="breadcrumb"]',
+        '[class*="breadcrumb"]', '.navigation-path', '.category-path'
+    ]
+    
+    for selector in breadcrumb_selectors:
+        breadcrumb_elem = soup.select_one(selector)
+        if breadcrumb_elem:
+            breadcrumbs = breadcrumb_elem.get_text().strip()
+            break
+    
+    content_sections['breadcrumbs'] = breadcrumbs
+    
+    # Product reviews snippets (medium priority)
+    reviews = ""
+    review_selectors = [
+        '.reviews-summary', '.review-highlights', '.customer-reviews',
+        '[class*="review"]', '.ratings-reviews', '.product-reviews'
+    ]
+    
+    for selector in review_selectors:
+        review_elem = soup.select_one(selector)
+        if review_elem:
+            # Get first few review highlights, not all reviews
+            review_text = review_elem.get_text().strip()
+            reviews = review_text[:500] + "..." if len(review_text) > 500 else review_text
+            break
+    
+    content_sections['reviews'] = reviews
+    
+    # Price and availability info (low priority but useful)
+    price_info = ""
+    price_selectors = [
+        '.price', '.product-price', '[class*="price"]', '.cost',
+        '.pricing', '.price-current', '.sale-price'
+    ]
+    
+    for selector in price_selectors:
+        price_elem = soup.select_one(selector)
+        if price_elem:
+            price_info = price_elem.get_text().strip()
+            break
+    
+    content_sections['price_info'] = price_info
+    
+    return content_sections
 
 @app.route('/')
 def index():
@@ -399,8 +656,8 @@ def crawl():
                 flash('Please provide at least 2 URLs for analysis', 'error')
                 return redirect(request.url)
             
-            if len(urls) > 3:
-                flash('Maximum 3 URLs allowed for analysis', 'error')
+            if len(urls) > 6:
+                flash('Maximum 6 URLs allowed for analysis', 'error')
                 return redirect(request.url)
             
             # Crawl URLs

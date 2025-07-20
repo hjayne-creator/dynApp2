@@ -77,7 +77,9 @@
                                         <th>Rank</th>
                                         <th>Keyword/Phrase</th>
                                         <th>Frequency</th>
-                                        <th>Files Found In</th>
+                                        <th>Coverage</th>
+                                        <th>Strategic Score</th>
+                                        <th>Competition Level</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -93,7 +95,25 @@
                                             <span class="badge bg-success">{{ keyword_data.frequency }}</span>
                                         </td>
                                         <td>
-                                            <small class="text-muted">{{ keyword_data.frequency }} of {{ result.urls_processed }} URLs</small>
+                                            {% set coverage_pct = (keyword_data.coverage * 100)|round|int %}
+                                            <span class="badge {% if coverage_pct == 100 %}bg-danger{% elif coverage_pct >= 67 %}bg-warning{% else %}bg-info{% endif %}">
+                                                {{ coverage_pct }}%
+                                            </span>
+                                            <br><small class="text-muted">{{ keyword_data.files_containing }}/{{ result.urls_processed }} URLs</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ keyword_data.strategic_score }}</span>
+                                        </td>
+                                        <td>
+                                            {% if keyword_data.coverage == 1.0 %}
+                                                <span class="badge bg-danger">Universal</span>
+                                            {% elif keyword_data.coverage >= 0.67 %}
+                                                <span class="badge bg-warning">Majority</span>
+                                            {% elif keyword_data.coverage >= 0.33 %}
+                                                <span class="badge bg-info">Partial</span>
+                                            {% else %}
+                                                <span class="badge bg-success">Opportunity</span>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}

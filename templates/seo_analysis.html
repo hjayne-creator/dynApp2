@@ -33,7 +33,7 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <div class="mb-3">
                             <label for="product_title" class="form-label">
-                                <strong>Product Title</strong>
+                                <strong>Prompt Context</strong>
                             </label>
                             <input type="text" 
                                    class="form-control form-control-lg" 
@@ -43,7 +43,7 @@
                                    placeholder="e.g., Wireless Bluetooth Headphones, Organic Cotton T-Shirt, etc."
                                    required>
                             <div class="form-text">
-                                Enter the main product title that these keywords will be analyzed against for SEO value.
+                                Enter context that these keywords will be analyzed against for SEO value.
                                 {% if default_title %}
                                 <br><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Default title derived from: {{ result.urls[0] }}</small>
                                 {% endif %}
@@ -97,7 +97,7 @@
                     <div class="mb-4">
                         <h6 class="text-muted">
                             <i class="fas fa-tag me-2"></i>
-                            Product: <strong>{{ product_title }}</strong>
+                            Context: <strong>{{ product_title }}</strong>
                         </h6>
                     </div>
                     
