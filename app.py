@@ -211,7 +211,7 @@ def find_common_keywords(file_keywords_list):
         keyword_frequency[keyword] = total_freq
     
     # Filter keywords with frequency 2 and higher
-    filtered_keywords = {kw: freq for kw, freq in keyword_frequency.items() if freq >= 10}
+    filtered_keywords = {kw: freq for kw, freq in keyword_frequency.items() if freq >= 5}
     
     # Sort by frequency (descending) and then alphabetically
     sorted_keywords = sorted(
@@ -249,36 +249,82 @@ def markdown_to_html(markdown_text):
     # Convert **text** to <strong>text</strong>
     html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html)
     
-    # Convert - item to <li>item</li>
-    html = re.sub(r'^- (.+)$', r'<li>\1</li>', html, flags=re.MULTILINE)
-    
-    # Wrap consecutive <li> elements in <ul>
-    html = re.sub(r'(<li>.*?</li>)+', lambda m: f'<ul>{m.group(0)}</ul>', html, flags=re.DOTALL)
-    
-    # Remove extra blank lines and normalize spacing
-    html = re.sub(r'\n\s*\n', '\n', html)  # Remove multiple consecutive newlines
-    
-    # Split into lines and process
+    # Convert markdown tables to HTML tables
     lines = html.split('\n')
+    in_table = False
+    table_lines = []
     processed_lines = []
     
     for line in lines:
         line = line.strip()
-        if line:
-            # If it's a header (starts with <strong>), add it as a paragraph
-            if line.startswith('<strong>'):
-                processed_lines.append(f'<p class="seo-header">{line}</p>')
-            # If it's a list, add it as is
-            elif line.startswith('<ul>') or line.startswith('<li>') or line.startswith('</ul>'):
-                processed_lines.append(line)
-            # Otherwise, skip empty lines
-            elif line:
-                processed_lines.append(line)
+        
+        # Check if this is a table line (starts with |)
+        if line.startswith('|') and line.endswith('|'):
+            if not in_table:
+                in_table = True
+                table_lines = []
+            table_lines.append(line)
+        else:
+            # If we were in a table and now we're not, process the table
+            if in_table:
+                processed_lines.append(convert_markdown_table_to_html(table_lines))
+                in_table = False
+                table_lines = []
+            
+            # Process non-table lines
+            if line:
+                # Convert - item to <li>item</li>
+                if line.startswith('- '):
+                    processed_lines.append(f'<li>{line[2:]}</li>')
+                # If it's a header (starts with <strong>), add it as a paragraph
+                elif line.startswith('<strong>'):
+                    processed_lines.append(f'<p class="seo-header">{line}</p>')
+                # If it's a list, add it as is
+                elif line.startswith('<ul>') or line.startswith('<li>') or line.startswith('</ul>'):
+                    processed_lines.append(line)
+                # Otherwise, add as regular paragraph
+                else:
+                    processed_lines.append(f'<p>{line}</p>')
     
-    # Join with minimal spacing
+    # Handle case where table is at the end
+    if in_table:
+        processed_lines.append(convert_markdown_table_to_html(table_lines))
+    
+    # Wrap consecutive <li> elements in <ul>
     html = ''.join(processed_lines)
+    html = re.sub(r'(<li>.*?</li>)+', lambda m: f'<ul>{m.group(0)}</ul>', html, flags=re.DOTALL)
     
     return html
+
+def convert_markdown_table_to_html(table_lines):
+    """Convert markdown table to HTML table"""
+    if len(table_lines) < 2:
+        return ''.join(table_lines)
+    
+    html_table = ['<table class="table table-striped table-bordered">']
+    
+    for i, line in enumerate(table_lines):
+        # Remove leading/trailing | and split by |
+        cells = [cell.strip() for cell in line.strip('|').split('|')]
+        
+        if i == 0:
+            # Header row
+            html_table.append('<thead><tr>')
+            for cell in cells:
+                html_table.append(f'<th>{cell}</th>')
+            html_table.append('</tr></thead>')
+        elif i == 1 and all(cell.startswith('-') and cell.endswith('-') for cell in cells):
+            # Separator row, skip it
+            continue
+        else:
+            # Data row
+            html_table.append('<tr>')
+            for cell in cells:
+                html_table.append(f'<td>{cell}</td>')
+            html_table.append('</tr>')
+    
+    html_table.append('</table>')
+    return ''.join(html_table)
 
 def analyze_keywords_with_openai(keywords_list, product_title):
     """Analyze keywords with OpenAI for SEO value"""
@@ -287,18 +333,26 @@ def analyze_keywords_with_openai(keywords_list, product_title):
         keywords_text = ', '.join([kw['keyword'] for kw in keywords_list[:50]])  # Limit to top 50 keywords
         
         # Create the prompt
-        prompt = f"""Identify the SEO value keywords from this list as it relates to: {product_title}
+        prompt = f"""Given the following list of keywords and phrases, your task is to identify which terms have strong SEO value and clear search intent. 
+        For each keyword or phrase, evaluate:
 
-Keywords: {keywords_text}
+1. Search Intent - Does this term reflect commercial, informational, navigational, or transactional intent?
+2. SEO Value - Is this term likely to drive valuable organic traffic? Consider whether it aligns with how real users search and whether it has relevance to a product, service, or topic.
 
-Output two category lists in markdown format:
-**High SEO Value (Strong Relevance + Buyer Intent)**
-- List keywords here
+Then sort the keywords by SEO Value High.
 
-**Medium SEO Value (Supporting Modifiers or Adjacent Terms)**
-- List keywords here
+Please return a properly formatted markdown table with the following structure:
 
-Please analyze each keyword for its SEO potential and categorize accordingly."""
+| Keyword/Phrase | Search Intent | SEO Value | Brief Reason |
+|----------------|---------------|-----------|--------------|
+| example keyword | Commercial | High | Strong commercial intent with high search volume |
+
+Search Intent options: Informational, Commercial, Transactional, Navigational
+SEO Value options: High, Medium, Low
+
+Here is the list of keywords to analyze: {keywords_text}
+
+Please format your response as a clean markdown table with proper headers and alignment."""
 
         # Create OpenAI client
         client = OpenAI()
@@ -307,7 +361,7 @@ Please analyze each keyword for its SEO potential and categorize accordingly."""
         completion = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are an SEO expert specializing in ecommerce keyword analysis. Provide clear, actionable insights about keyword SEO value."},
+                {"role": "system", "content": "You are an SEO expert specializing in ecommerce keyword analysis."},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=1000,
